@@ -1,15 +1,16 @@
-# 解决问题的帖子
+# k8s基本操作
+## 如何解决问题的帖子
 https://www.codenong.com/js9ff1f21fd788/
 
-# kubectl 命令行工具
-
-# namespace
-## 常用命令
+## namespace
+### 常用命令
+```bash
 kubectl get namespace # 查询命名空间
 kubectl create namespace test # 创建命名空间test
 kubectl delete namespace test # 删除命名空间test
 kubectl config set-context --current --namespace=test # 指定默认命名空间test
 kubectl config view | grep namespace # 验证当前命名空间
+```
 
 ## 通过资源的方式创建namespace
 ```yaml
@@ -18,12 +19,16 @@ kind: Namespace
 metadata:
 	name: test
 ```
-kubectl apply -f create-namespace.yaml
 
-# pod
+```bash
+kubectl apply -f create-namespace.yaml
+```
+
+## pod
 pod是k8s中能被创建管理的最小可部署单元
 
-## 常用命令
+### 常用命令
+```bash
 kubectl run nginx --image=nginx:1.14.2 -n test # 在test命名空间下创建nginx
 kubectl get pod -n test # 查看test命名空间下的pod
 kubectl describe pod nginx -n test # 查看nginx的pod的详情(排查问题) 主要关注events
@@ -33,9 +38,9 @@ curl <ip> # 尝试访问pod(nginx)
 kubectl logs <pod-name> # 查看pod的运行日志
 kubectl delete pod <pod-name> # 删除pod
 kubectl exec -it <pod-name> -c <image-name> -- sh # 进入pod容器内部
+```
 
-
-## 通过资源的方式创建pod(缺少namespace)
+### 通过资源的方式创建pod(缺少namespace)
 ```yaml
 apiVersion: v1
 kind: Pod
@@ -51,7 +56,7 @@ spec:
 	  - containerPort: 80	
 ```	
 
-## 一个pod创建多个容器(内部共享网络)
+### 一个pod创建多个容器(内部共享网络)
 ```yaml
 apiVersion: v1
 kind: Pod
@@ -67,10 +72,17 @@ spec:
 	  name: tomcat
 ```
 
-# deployment(无状态服务 本地微服务) / statefulset(有状态服务 需要考虑共享存储 mysql, redis) / daemonset(日志搜集) / job(定时任务) 
+## deployment(无状态服务 本地微服务) 
 deployment使pod拥有多个副本 自愈 扩缩容的能力
 
-## 常用命令
+### 平级对象
+statefulset(有状态服务 需要考虑共享存储 mysql, redis) 
+daemonset(日志搜集)  
+job(定时任务) 
+
+
+### 常用命令
+```bash
 kubectl create deployment my-tomcat --image=tomcat:9.0.55 --replicas=3 -n test # 创建一个deployment 有三个副本
 kubectl get deployment -n test # 查询命名空间下的deployment
 kubectl delete pod my-tomcat-7f776c8676-6zmvq -n test # 删除deployment下的pod
@@ -83,27 +95,31 @@ kubectl set image deployment my-tomcat tomcat=tomcat:10.1.11 --record # 升级im
 kubectl rollout history deployment my-tomcat # 查看可供回退的image版本
 kubectl rollout undo deployment my-tomcat # 回退到上一个版本
 kubectl rollout undo deployment/my-tomcat --to-revision=2 # 回退到指定版本
+```
 
-# service
+
+## service
 service为一组pod提供网络服务
 
-## 暴露的方式
+### 暴露的方式
 ClusterIP: 不能对外暴露
 NodePort: 能暴露
 LoadBalancer: 能暴露 并且能固定IP
 ExternalName: 
 
-## 常用命令
+### 常用命令
+```bash
 kubectl expose deployment my-tomcat --name=tomcat --port=8080 --type=NodePort -n test # 创建service 或者说 暴露deployment
 kubectl get service -n test # 查看service
 kubectl edit svc tomcat # 查看资源清单
 kubectl get svc tomcat -oyaml # 查看资源清单
+```
 
-## service的资源清单
+### service的资源清单
 port指的是service的端口
 targetPort指的是pod暴露出来的端口
 
-# volume
+## volume
 提供共享存储功能 防止deployment重新拉起pod后数据丢失
 configMap: 键值对配置
 emptyDir: 空目录 临时数据
@@ -111,11 +127,11 @@ local: 本地
 nfs: 网络目录实现共享
 secret: 存储敏感信息
 
-## 资源清单关键字
+### 资源清单关键字
 volumeMounts
 volumes
 
-## 创建静态PV
+### 创建静态PV
 ```yaml
 apiVersion: v1
 kind: PersistentVolume
@@ -160,12 +176,14 @@ spec:
     server: 192.168.71.54
 ```
 
+
+```bash
 kubectl apply -f create-static-pv.yaml
 
 kubectl get pv
+```
 
-
-## 创建持久化申请 防止server的ip泄露
+### 创建持久化申请 防止server的ip泄露
 ```yaml
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -180,9 +198,11 @@ spec:
   storageClassName: nfs
 ```
 
+```bash
 kubectl get pv
+```
 
-## 创建数据外挂的nginx
+### 创建数据外挂的nginx
 ```yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -211,11 +231,13 @@ spec:
           persistentVolumeClaim:
             claimName: nginx-pvc
 ```
+
+```bash
 kubectl get pvc # 切换到对应目录 然后创建新的index.html
 
 echo "hello dendy" >> index.html
-
-## 动态供应
+```
+### 动态供应
 ```yaml
 ## 创建了一个存储类
 apiVersion: storage.k8s.io/v1
@@ -347,8 +369,6 @@ spec:
   storageClassName: nfs-storage
 ```
 
-
-
-# ingress
+## ingress
 k8s的网关
 

@@ -1,6 +1,8 @@
+# k8s安装
 全部使用root用户权限操作 所有节点都需要操作
 
-# 固定ip 防止虚拟机重启后ip变化
+### 固定ip 防止虚拟机重启后ip变化
+```bash
 sudo vim /etc/sysconfig/network-scripts/ifcfg-ens33
 
 IPADDR=192.168.71.54 
@@ -10,14 +12,19 @@ DNS1=116.228.111.118
 DNS2=180.168.255.18
 
 sudo systemctl restart network
-
-# 设置主机名
+```
+### 设置主机名
+```bash
 hostnamectl set-hostname k8s-master
+```
 
-# 设置时区
+### 设置时区
+```bash
 timedatectl set-timezone Asia/Shanghai
+```
 
-# 设置集群
+### 设置集群
+```bash
 cat >> /etc/hosts << EOF
 192.168.71.54 k8s-master
 192.168.71.55 k8s-node1
@@ -25,22 +32,31 @@ cat >> /etc/hosts << EOF
 192.168.71.57 k8s-node3
 192.168.71.58 k8s-node4
 EOF
+```
 
-# 永久关闭seLinux(需重启系统生效)
+### 永久关闭seLinux(需重启系统生效)
+```bash
 setenforce 0
 sed -i 's/SELINUX=enforcing/SELINUX=disabled/g' /etc/selinux/config
+```
 
-# 永久关闭swap(需重启系统生效)
+### 永久关闭swap(需重启系统生效)
+```bash
 swapoff -a  # 临时关闭
 sed -i 's/.*swap.*/#&/g' /etc/fstab # 永久关闭
+```
 
-# 关闭防火墙
+### 关闭防火墙
+```bash
 systemctl disable firewalld && systemctl stop firewalld
-
-# 关闭NetworkManager
+```
+### 关闭NetworkManager
+```bash
 systemctl disable NetworkManager && systemctl stop NetworkManager
+```
 
-# 加载IPVS模块
+### 加载IPVS模块
+```bash
 yum -y install ipset ipvsadm
 
 cat > /etc/sysconfig/modules/ipvs.modules <<EOF
@@ -54,8 +70,10 @@ EOF
 modprobe -- nf_conntrack
 
 chmod 755 /etc/sysconfig/modules/ipvs.modules && bash /etc/sysconfig/modules/ipvs.modules && lsmod | grep -e ip_vs -e nf_conntrack
+```
 
-# 开启br_netfilter、ipv4 路由转发
+### 开启br_netfilter、ipv4 路由转发
+```bash
 cat <<EOF | sudo tee /etc/modules-load.d/k8s.conf
 overlay
 br_netfilter
@@ -64,24 +82,32 @@ EOF
 sudo modprobe overlay
 
 sudo modprobe br_netfilter
+```
 
-# 设置所需的 sysctl 参数，参数在重新启动后保持不变
+### 设置所需的 sysctl 参数，参数在重新启动后保持不变
+```bash
 cat <<EOF | sudo tee /etc/sysctl.d/k8s.conf
 net.bridge.bridge-nf-call-iptables  = 1
 net.bridge.bridge-nf-call-ip6tables = 1
 net.ipv4.ip_forward                 = 1
 EOF
+```
 
-# 应用 sysctl 参数而不重新启动
+### 应用 sysctl 参数而不重新启动
+```bash
 sudo sysctl --system
+```
 
-# 查看是否生效
+### 查看是否生效
+```bash
 lsmod | grep br_netfilter
 lsmod | grep overlay
 
 sysctl net.bridge.bridge-nf-call-iptables net.bridge.bridge-nf-call-ip6tables net.ipv4.ip_forward
+```
 
-# 设置资源配置文件
+### 设置资源配置文件
+```bash
 cat >> /etc/security/limits.conf << 'EOF'
 * soft nofile 100001
 * hard nofile 100002
@@ -98,8 +124,10 @@ EOF
 grep -vE "^\s*#" /etc/security/limits.conf
 
 ulimit -a
+```
 
-# 安装docker
+### 安装docker
+```bash
 wget -O /etc/yum.repos.d/docker-ce.repo https://download.docker.com/linux/centos/docker-ce.repo
 
 sed -i 's+download.docker.com+mirrors.cloud.tencent.com/docker-ce+' /etc/yum.repos.d/docker-ce.repo
@@ -135,8 +163,11 @@ systemctl daemon-reload && systemctl restart docker
 yum -y install bash-completion
 
 source /etc/profile.d/bash_completion.sh
+```
 
-# 安装k8s kubeadm-1.23.17、kubelet-1.23.17、kubectl-1.23.17
+
+### 安装k8s kubeadm-1.23.17、kubelet-1.23.17、kubectl-1.23.17
+```bash
 cat > /etc/yum.repos.d/kubernetes.repo <<EOF
 [kubernetes]
 name=kubernetes
@@ -148,9 +179,12 @@ EOF
 yum -y install kubeadm-1.23.17-0 kubelet-1.23.17-0 kubectl-1.23.17-0
 
 systemctl enable --now kubelet
+```
 
-# 安装nfs-server
+### 安装nfs-server
+```bash
 yum install -y nfs-utils
+```
 
 master节点执行
 ```bash
@@ -178,14 +212,12 @@ mkdir -p /nfs/data
 mount -t nfs 192.168.71.54:/nfs/data /nfs/data
 ```
 
-
-
-# 初始化集群(以下全是master节点的操作)
+### 初始化集群(以下全是master节点的操作)
+```bash
 mkdir ~/kubeadm_init && cd ~/kubeadm_init
 
 kubeadm config print init-defaults > kubeadm-init.yaml
 
-```txt
 cat > ~/kubeadm_init/kubeadm-init.yaml << EOF
 apiVersion: kubeadm.k8s.io/v1beta2
 bootstrapTokens:
@@ -237,52 +269,67 @@ cgroupDriver: systemd
 EOF
 ```
 
-# 查看所需镜像列表
+### 查看所需镜像列表
+```bash
 kubeadm config images list --config kubeadm-init.yaml
+```
 
-# 预拉取镜像
+### 预拉取镜像
+```bash
 kubeadm config images pull --config kubeadm-init.yaml
+```
 
-# 初始化
+### 初始化
+```bash
 kubeadm init --config=kubeadm-init.yaml | tee kubeadm-init.log
+```
 
-# 加入集群
+### 加入集群
+```bash
 kubeadm join 192.168.71.54:6443 --token abcdef.0123456789abcdef \
         --discovery-token-ca-cert-hash sha256:3d3ac9adf37ed7ae6cf0df70a2e47fd92ce2dc000678cd82ced331ea0291eeda
+```
 
-# 生成新的令牌
+### 生成新的令牌
+```bash
 kubeadm token create --print-join-command
+```
 
-# 配置 kubectl
+### 配置 kubectl
+```bash
 mkdir -p $HOME/.kube
 sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
 sudo chown $(id -u):$(id -g) $HOME/.kube/config
+```
 
-# 安装k8s集群网络(calico)
+### 安装k8s集群网络(calico)
 k8s和calico对应关系
 https://docs.tigera.io/archive/v3.25/getting-started/kubernetes/requirements
 
+
+```bash
 mkdir -p ~/calico-yml
 
 cd ~/calico-yml && wget https://github.com/projectcalico/calico/raw/v3.25.1/manifests/calico.yaml
+```
 
-# 修改CIDR
-```shell
+### 修改CIDR
+```bash
 sed -i 's/192\.168/10\.244/g' calico.yaml
 sed -i 's/# \(- name: CALICO_IPV4POOL_CIDR\)/\1/' calico.yaml
 sed -i 's/# \(\s*value: "10.244.0.0\/16"\)/\1/' calico.yaml
 ```
 
-# 指定网卡
-```shell
+### 指定网卡
+```bash
 sed -i '/value: "k8s,bgp"/a \            - name: IP_AUTODETECTION_METHOD' \calico.yaml
 sed -i '/- name: IP_AUTODETECTION_METHOD/a \              value: "interface=ens33"' \calico.yaml
-```
 
 kubectl apply -f ~/calico-yml/calico.yaml
-
-# 文件修改后的样子
 ```
+
+### 文件修改后的样子
+```txt
 1 修改CIDR
 - name: CALICO_IPV4POOL_CIDR
   value: "10.244.0.0/16"
@@ -298,12 +345,16 @@ kubectl apply -f ~/calico-yml/calico.yaml
     # ens33为本地网卡名字（自己机器啥网卡就改啥）
 ```
 
-# coredns解析测试是否正常
+### coredns解析测试是否正常
+```bash
 kubectl run -it --rm dns-test --image=busybox:1.28.4 sh
 
 nslookup kubernetes
+```
 
-# 安装ingress
+### 安装ingress
+```txt
 wget https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.3.1/deploy/static/provider/baremetal/deploy.yaml
 registry.cn-hangzhou.aliyuncs.com/lfy_k8s_images/ingress-nginx-controller:v1.3.1
 registry.cn-hangzhou.aliyuncs.com/google_containers/nginx-ingress-controller:v1.3.1
+```
