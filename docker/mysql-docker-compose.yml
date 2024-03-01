@@ -1,0 +1,30 @@
+version: '3.1'
+
+services:
+  mysql-master:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: dendy
+      MYSQL_DATABASE: mydb
+    ports:
+      - "3306:3306"
+    volumes:
+      - /soft/mysql/master:/var/lib/mysql
+    
+    
+    command: --server-id=1 --log-bin=mysql-bin --binlog-format=ROW --default-authentication-plugin=mysql_native_password
+
+  mysql-slave:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: dendy
+      MYSQL_DATABASE: mydb
+    ports:
+      - "3307:3306"
+
+    volumes:
+      - /soft/mysql/slave:/var/lib/mysql
+
+    command: --server-id=2 --default-authentication-plugin=mysql_native_password
+    depends_on:
+      - mysql-master

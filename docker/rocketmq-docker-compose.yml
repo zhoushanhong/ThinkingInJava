@@ -1,0 +1,21 @@
+version: '2.2'
+
+services:
+  namesrv:
+    image: apache/rocketmq:4.8.0
+    container_name: rocketmq-namesrv
+    ports:
+      - "9876:9876"
+    command: "sh mqnamesrv"
+
+  broker:
+    image: apache/rocketmq:4.8.0
+    container_name: rocketmq-broker
+    environment:
+      - NAMESRV_ADDR=namesrv:9876
+    ports:
+      - "10911:10911"
+      - "10909:10909"
+    depends_on:
+      - namesrv
+    command: "sh mqbroker -n namesrv:9876"
