@@ -17,7 +17,7 @@ kubectl config view | grep namespace # 验证当前命名空间
 apiVersion: v1
 kind: Namespace
 metadata:
-	name: test
+  name: test
 ```
 
 ```bash
